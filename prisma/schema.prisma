@@ -2,66 +2,180 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-    provider = "prisma-client-js"
-    previewFeatures = ["jsonProtocol"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "sqlite"
-    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
-    // Further reading:
-    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
-    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
-    url      = env("DATABASE_URL")
+  provider = "mysql"
+  // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
+  // Further reading:
+  // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
+  // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
+  url      = env("DATABASE_URL")
 }
 
-model Example {
-    id        String   @id @default(cuid())
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+model member {
+  id              String            @id @default(uuid())
+  email           String            @unique
+  first_name      String?
+  last_name       String?
+  phone_number    String?
+  member_tier     Tier              @default(BRONZE)
+  street_address  String?
+  city            String?
+  state           String?
+  zip             String?
+  payment_methods payment_methods[]
+  orders          order[]
+  referrals       referral[]
+  won_referral    Boolean?          @default(false)
+  created_at      DateTime          @default(now())
 }
 
-// Necessary for Next auth
-model Account {
-    id                String  @id @default(cuid())
-    userId            String
-    type              String
-    provider          String
-    providerAccountId String
-    refresh_token     String? // @db.Text
-    access_token      String? // @db.Text
-    expires_at        Int?
-    token_type        String?
-    scope             String?
-    id_token          String? // @db.Text
-    session_state     String?
-    user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@unique([provider, providerAccountId])
+enum Tier {
+  BRONZE
+  GOLD
+  DIAMOND
 }
 
-model Session {
-    id           String   @id @default(cuid())
-    sessionToken String   @unique
-    userId       String
-    expires      DateTime
-    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+// User Payment Methods by User
+
+model payment_methods {
+  id            String @id @default(uuid())
+  member        member @relation(fields: [member_id], references: [id])
+  member_id     String
+  cc_number     Int
+  cc_expiration Int
+  cc_cvv        Int
 }
 
-model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
+// Events - all Rameelo events (tentative and active)
+
+model event {
+  id             String    @id @default(uuid())
+  event_type     EventType @default(SINGLE)
+  title          String
+  description    String?
+  event_date     DateTime
+  start_datetime DateTime  @default(now())
+  end_datetime   DateTime  @default(now())
+  location       String?
+  street_address String?
+  city           String?
+  state          String?
+  zip            Int?
+  photo_url      String?
+  tickets        ticket[]
+  is_active      Boolean
+  created_at     DateTime  @default(now())
 }
 
-model VerificationToken {
-    identifier String
-    token      String   @unique
-    expires    DateTime
+enum EventType {
+  SINGLE
+  COMBO
+}
 
-    @@unique([identifier, token])
+// Ticket
+
+model ticket {
+  id               String        @id @default(uuid())
+  event            event         @relation(fields: [event_id], references: [id])
+  event_id         String
+  ticket_type      TicketType
+  ticket_tier      TicketTier
+  ticket_urgency   TicketUrgency @default(EARLYBIRD)
+  stripe_id        String?
+  sales_start_date DateTime?     @default(now())
+  sales_end_date   DateTime?
+  name             String?
+  description      String?
+  photo_url        String?
+  price            Float
+  qty_left         Int
+  qty_sold         Int
+  group_disc_min   Int
+  group_price      Float
+  platform_fee     Float
+  original_ticket  TicketUrgency @default(REGULAR)
+  original_price   Float?
+  order_items      order_item[]
+  is_active        Boolean
+  created_at       DateTime      @default(now())
+}
+
+enum TicketType {
+  SINGLE
+  COMBO
+}
+
+enum TicketTier {
+  GA
+  GOLD
+  DIAMOND
+}
+
+enum TicketUrgency {
+  EARLYBIRD
+  REGULAR
+  DOOR
+}
+
+// Promo codes
+
+model promocode {
+  id              String   @id @default(uuid())
+  code_name       String
+  discount_amount Float
+  qty_used        Int      @default(0)
+  orders          order[]
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+}
+
+// Orders - overall order information
+
+model order {
+  id                     String       @id @default(uuid())
+  order_number           String
+  member                 member       @relation(fields: [member_id], references: [id])
+  member_id              String
+  billing_street_address String
+  billing_city           String
+  billing_state          String
+  billing_zip            Int
+  num_of_items           Int
+  order_items            order_item[]
+  subtotal               Float
+  platform_fees          Float
+  promo_code_applied     Boolean?
+  promocode              promocode?   @relation(fields: [promocode_id], references: [id])
+  promocode_id           String?
+  discount_given         Float?
+  order_total            Float
+  is_paid                Boolean
+  email_sent             Boolean
+  created_at             DateTime     @default(now())
+}
+
+// Order Items
+
+model order_item {
+  id          String   @id @default(uuid())
+  order       order    @relation(fields: [order_id], references: [id])
+  order_id    String
+  ticket      ticket   @relation(fields: [ticket_id], references: [id])
+  ticket_id   String
+  qty_ordered Int
+  created_at  DateTime @default(now())
+}
+
+// Referrals
+
+model referral {
+  id                  String   @id @default(uuid())
+  member              member   @relation(fields: [referring_member_id], references: [id])
+  referring_member_id String
+  referral_email      String?
+  referral_phone      String?
+  referral_date       DateTime @default(now())
 }

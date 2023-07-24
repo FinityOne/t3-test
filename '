@@ -5,32 +5,26 @@ import Link from "next/link";
 import { useState } from "react";
 import { api } from "~/utils/api";
 
-const useDoStripeWork = () => {
-  return async () => {
-    //
-    //
-
-  }
-}
-
 export default function Home() {
   const { data: events, isLoading, refetch } = api.example.getEvents.useQuery();
   const { mutateAsync } = api.example.createEvent.useMutation();
 
   const [eventName, setEventName] = useState<string>("");
 
-  const initiate = useDoStripeWork()
-
   const createEvent = async () => {
     try {
       await mutateAsync({
-        name: eventName,
+        name: "test event",
       });
 
       refetch();
     } catch (error) {
       console.log(error);
     }
+  };
+
+  const onChange = (newValue: string) => {
+    setEventName(newValue);
   };
 
   return (
@@ -51,7 +45,7 @@ export default function Home() {
             </div>
           ))}
 
-          <input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} />
+          <input type="text" value={eventName} onClick={onChange} />
 
           <button onClick={createEvent}>create event</button>
         </div>
